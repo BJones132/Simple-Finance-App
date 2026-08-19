@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Finance_Web_App</RootNamespace>
+    <AssemblyName>$(AssemblyName.Replace(' ', '_'))</AssemblyName>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <OpenApiReference Include="OpenAPIs\v1.json" ClassName="AuthService">
+      <SourceUri>https://localhost:5000/openapi/v1.json</SourceUri>
+    </OpenApiReference>
+    <OpenApiReference Include="OpenAPIs\v11.json" ClassName="AccountService">
+      <SourceUri>https://localhost:5001/openapi/v1.json</SourceUri>
+    </OpenApiReference>
+    <OpenApiReference Include="OpenAPIs\v12.json" ClassName="TransactionService">
+      <SourceUri>https://localhost:5002/openapi/v1.json</SourceUri>
+    </OpenApiReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazorise.Bootstrap5" Version="2.3.0" />
+    <PackageReference Include="Blazorise.Charts.Svg" Version="2.3.0" />
+    <PackageReference Include="Blazorise.Icons.FontAwesome" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Client" Version="7.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="NSwag.ApiDescription.Client" Version="13.18.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

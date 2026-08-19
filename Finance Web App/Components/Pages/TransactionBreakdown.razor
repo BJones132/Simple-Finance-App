@@ -1,0 +1,160 @@
+﻿@page "/transactionBreakdown"
+
+@inject AuthService authService
+@inject AccountService accountService
+@inject TransactionService transactionService
+@inject NavigationManager navManager
+@inject ProtectedLocalStorage protectedLocalStorage
+
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<Layout Height="Height.Vh(100)"
+        TextAlignment="TextAlignment.Center">
+    <LayoutHeader Background="Background.Primary" TextColor="TextColor.White" Padding="Padding.Is3">
+        <Div Width="Width.Is100"
+             Flex="Flex.JustifyContent.Between.AlignItems.Center"
+             Gap="Gap.Is3">
+            <Div Flex="Flex.AlignItems.Center" Gap="Gap.Is2">
+                <Button Color="Color.Light" Type="ButtonType.Link" href="/user">
+                    <Icon Name="IconName.ArrowLeft" />
+                </Button>
+            </Div>
+        </Div>
+    </LayoutHeader>
+    <LayoutContent Flex="Flex.Column.JustifyContent.Center.AlignContent.Center.AlignItems.Center">
+        <Card Flex="Flex.Column" Width="Width.Is33.OnDesktop.Is66.OnMobile">
+            <CardBody>
+                <CardTitle Size="HeadingSize.Is3">
+                    Account Spending Breakdown
+                </CardTitle>
+                <Label>Account:</Label>
+                @if (accounts == null)
+                {
+                    <Select TValue="string" Disabled="true" Loading="true">
+                        <SelectItem TValue="string">Loading...</SelectItem>
+                    </Select>
+                }
+                else
+                {
+                    <Select TValue="int" @bind-Value="selectedAccount" @onselectionchange="@(e => SelectAccount(selectedAccount))">
+                        @foreach (var account in accounts)
+                        {
+                            <SelectItem Value="@account.Id">@account.Id</SelectItem>
+                        }
+                    </Select>
+                    <Button Margin="Margin.Is3" Color="Color.Primary" @onclick="@GenerateBreakdown">Generate Breakdown</Button>
+                    @if(chartData != null)
+                    {
+                        <SvgPieChart TItem="object"
+                                     Data="@chartData"
+                                     Options="@chartOptions">
+                            <SvgChartTitle Title="@($"Account {selectedAccount} spending breakdown")" />
+                            <SvgChartTooltip Enabled="false" />
+                        </SvgPieChart>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHeaderCell>Designator</TableHeaderCell>
+                                    <TableHeaderCell>Total</TableHeaderCell>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                @foreach(var designatorTotal in transactionDesignatorTotals)
+                                {
+                                    <TableRow>
+                                        <TableRowCell>@designatorTotal.Key</TableRowCell>
+                                        <TableRowCell>£@designatorTotal.Value</TableRowCell>
+                                    </TableRow>
+                                }
+                            <TableRow>
+                                <TableRowHeader>Total</TableRowHeader>
+                                <TableRowCell>£@totalTransactionValue</TableRowCell>
+                            </TableRow>
+                            </TableBody>
+                        </Table>
+                    }
+                }
+            </CardBody>
+        </Card>
+    </LayoutContent>
+</Layout>
+
+@code {
+    int selectedAccount = 0;
+    List<Account>? accounts;
+    List<Transaction>? transactions;
+
+    private readonly SvgChartOptions chartOptions = new()
+    {
+        Height = 320,
+        Legend = new(){Position = SvgChartLegendPosition.Bottom}
+    };
+
+    private SvgChartData<double?>? chartData;
+    decimal totalTransactionValue = 0;
+    Dictionary<string, decimal> transactionDesignatorTotals = new Dictionary<string, decimal>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        string? token = (await protectedLocalStorage.GetAsync<string>("access_token")).Value;
+        if (string.IsNullOrEmpty(token))
+        {
+            navManager.NavigateTo("/");
+            return;
+        }
+
+        try
+        {
+            int uid = await authService.Get_IDAsync(token);
+            accounts = (List<Account>)await accountService.GetAccountsAsync(uid);
+            if (accounts.Count == 0)
+                navManager.NavigateTo("/user");
+            selectedAccount = accounts[0].Id;
+        }
+        catch (ApiException)
+        {
+            navManager.NavigateTo("/login");
+        }
+    }
+
+    private async Task GenerateBreakdown()
+    {
+        await SelectAccount(selectedAccount);
+        totalTransactionValue = 0;
+        transactionDesignatorTotals.Clear();
+        foreach(var transaction in transactions!)
+        {
+            if (transaction.Amount >= 0)
+                continue;
+
+            //Only balance out will be counted, totalTransactionValue will be positive for operations.
+            totalTransactionValue -= (decimal)transaction.Amount;
+
+            if (transactionDesignatorTotals.ContainsKey(transaction.Designator))
+            {
+                transactionDesignatorTotals[transaction.Designator] -= (decimal)transaction.Amount;
+            }
+            else
+            {
+                transactionDesignatorTotals.Add(transaction.Designator, (decimal)-transaction.Amount);
+            }
+        }
+
+        chartData = new();
+        chartData.Series.Add(new SvgChartSeriesData<double?>(){Name="Designator Share"});
+
+        foreach (var designatorTotal in transactionDesignatorTotals)
+        {
+            chartData.Labels.Add(designatorTotal.Key);
+            double percentageShare = (double)((designatorTotal.Value / totalTransactionValue) * 100);
+            chartData.Series[0].Values.Add(percentageShare);
+        }
+    }
+
+    private async Task SelectAccount(int id)
+    {
+        transactions = (List<Transaction>)await transactionService.TransactionsAsync(selectedAccount);
+        Console.WriteLine($"Selected: {selectedAccount}");
+    }
+
+}

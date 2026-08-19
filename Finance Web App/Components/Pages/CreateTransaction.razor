@@ -1,0 +1,229 @@
+﻿@page "/createTransaction"
+
+@inject AuthService authService
+@inject AccountService accountService
+@inject TransactionService transactionService
+@inject NavigationManager navManager
+@inject ProtectedLocalStorage protectedLocalStorage
+
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<Layout Height="Height.Vh(100)"
+        TextAlignment="TextAlignment.Center">
+    <LayoutHeader Background="Background.Primary" TextColor="TextColor.White" Padding="Padding.Is3">
+        <Div Width="Width.Is100"
+             Flex="Flex.JustifyContent.Between.AlignItems.Center"
+             Gap="Gap.Is3">
+            <Div Flex="Flex.AlignItems.Center" Gap="Gap.Is2">
+                <Button Color="Color.Light" Type="ButtonType.Link" href="/user" Disabled="@formBusy">
+                    <Icon Name="IconName.ArrowLeft" />
+                </Button>
+            </Div>
+        </Div>
+    </LayoutHeader>
+    <LayoutContent Flex="Flex.Column.JustifyContent.Center.AlignContent.Center.AlignItems.Center">
+        <Card Flex="Flex.Column" Width="Width.Is33.OnDesktop.Is66.OnMobile">
+            <CardBody>
+                <CardTitle Size="HeadingSize.Is3">
+                    Make a Transaction
+                </CardTitle>
+                <EditForm Model="@transactionDTO" FormName="TransactionForm">
+                    <Validations @ref="validations" Mode="ValidationMode.Manual" Model="@transactionDTO">
+                        <Validation>
+                            <Field>
+                                <FieldLabel>From Account Number:</FieldLabel>
+                                <FieldBody>
+                                    @if (accounts == null)
+                                    {
+                                        <Span>Loading accounts...</Span>
+                                    }
+                                    else
+                                    {
+                                        <Select @bind-Value="@transactionDTO!.SourceAccountId" Disabled="@formBusy">
+                                            @foreach (var account in accounts)
+                                            {
+                                                <SelectItem Value="@account.Id">@account.Id</SelectItem>
+                                            }
+                                        </Select>
+                                    }
+                                </FieldBody>
+                                <ValidationFeedback>
+                                    <ValidationError />
+                                </ValidationFeedback>
+                            </Field>
+                        </Validation>
+                        <Validation>
+                            <Field>
+                                <FieldLabel>To Account Number:</FieldLabel>
+                                <FieldBody>
+                                    <NumericInput TValue="int" Placeholder="Account Number" @bind-Value="@transactionDTO!.DestinationAccountId" Disabled="@formBusy" onchange="@ClearValidations">
+                                        <Feedback>
+                                            <ValidationError />
+                                        </Feedback>
+                                    </NumericInput>
+                                </FieldBody>
+                            </Field>
+                        </Validation>
+                        <Validation>
+                            <Field>
+                                <FieldLabel>Reference:</FieldLabel>
+                                <FieldBody>
+                                    <TextInput Placeholder="Reference" @bind-Value="@transactionDTO!.Reference" Disabled="@formBusy" onchange="@ClearValidations">
+                                        <Feedback>
+                                            <ValidationError />
+                                        </Feedback>
+                                    </TextInput>
+                                </FieldBody>
+                            </Field>
+                        </Validation>
+                        <Validation>
+                            <Field>
+                                <FieldLabel>Designator:</FieldLabel>
+                                <FieldBody>
+                                    <Select TValue="string" @bind-Value="@transactionDTO!.Designator" Disabled="@formBusy">
+                                        <SelectItem TValue="string" Value="@("Friends and Family")">Friends and Family</SelectItem>
+                                        <SelectItem TValue="string" Value="@("Purchase")">Purchase</SelectItem>
+                                        <SelectItem TValue="string" Value="@("Investment")">Investment</SelectItem>
+                                        <SelectItem TValue="string" Value="@("Donation")">Donation</SelectItem>
+                                        <SelectItem TValue="string" Value="@("Other")">Other</SelectItem>
+                                    </Select>
+                                </FieldBody>
+                                <ValidationFeedback>
+                                    <ValidationError />
+                                </ValidationFeedback>
+                            </Field>
+                        </Validation>
+                        <Validation>
+                            <Field>
+                                <FieldLabel>Amount:</FieldLabel>
+                                <FieldBody>
+                                    <NumericInput TValue="double" @bind-Value="@transactionDTO!.Amount" Disabled="@formBusy" onchange="@ClearValidations">
+                                        <Feedback>
+                                            <ValidationError />
+                                        </Feedback>
+                                    </NumericInput>
+                                </FieldBody>
+                            </Field>
+                        </Validation>
+                    </Validations>
+                    <Button Color="Color.Primary" Type="ButtonType.Submit" PreventDefaultOnSubmit Loading="@formBusy" Disabled="@formBusy" onclick="@TrySend">
+                        @if (!formBusy)
+                        {
+                            <Span>Send</Span>
+                        }
+                    </Button>
+                </EditForm>
+                @if (!string.IsNullOrEmpty(transactionErrorMessage))
+                {
+                    <Span TextColor="TextColor.Danger">@transactionErrorMessage</Span>
+                }
+            </CardBody>
+        </Card>
+    </LayoutContent>
+</Layout>
+
+@code {
+    bool formBusy = false;
+    private Validations validations;
+    private List<Account>? accounts;
+    private string transactionErrorMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (transactionDTO is null){
+            transactionDTO = new TransactionDTO();
+            transactionDTO!.Designator = "Friends and Family";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        string? token = (await protectedLocalStorage.GetAsync<string>("access_token")).Value;
+        if (string.IsNullOrEmpty(token))
+        {
+            navManager.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            int uid = await authService.Get_IDAsync(token);
+            accounts = (List<Account>)await accountService.GetAccountsAsync(uid);
+            transactionDTO!.SourceAccountId = accounts[0].Id;
+        }
+        catch (ApiException)
+        {
+            navManager.NavigateTo("/login");
+        }
+    }
+
+    private async Task ClearValidations()
+    {
+        await validations.ClearAll();
+    }
+
+    private async Task TrySend()
+    {
+        formBusy = true;
+
+        if (!await validations.ValidateAll())
+        {
+            formBusy = false;
+            return;
+        }
+
+        if(transactionDTO!.SourceAccountId == transactionDTO!.DestinationAccountId)
+        {
+            transactionErrorMessage = "Source and Destination account IDs cannot match!";
+            formBusy = false;
+            return;
+        }
+
+        if(transactionDTO!.Amount <= 0)
+        {
+            transactionErrorMessage = "Please enter an amount greater than 0!";
+            formBusy = false;
+            return;
+        }
+
+        decimal finalBalance = (decimal)(await accountService.GetBalanceAsync(transactionDTO!.SourceAccountId)).Balance - (decimal)transactionDTO!.Amount;
+
+        if(finalBalance < 0)
+        {
+            transactionErrorMessage = "Not enough funds in source account!";
+            formBusy = false;
+            return;
+        }
+
+        try
+        {
+            await accountService.AddBalanceAsync(transactionDTO!.SourceAccountId, -transactionDTO!.Amount);
+            await accountService.AddBalanceAsync(transactionDTO!.DestinationAccountId, transactionDTO!.Amount);
+            decimal destinationBalance = (decimal)(await accountService.GetBalanceAsync(transactionDTO!.DestinationAccountId)).Balance;
+            transactionDTO!.DestinationBalance = (double)destinationBalance;
+            await transactionService.CreateTransactionAsync(transactionDTO);
+
+            TransactionDTO inverseTransaction = new TransactionDTO()
+            {
+                SourceAccountId = transactionDTO.DestinationAccountId,
+                DestinationAccountId = transactionDTO.SourceAccountId,
+                Reference = transactionDTO.Reference,
+                Designator = transactionDTO.Designator,
+                Amount = -transactionDTO.Amount,
+                DestinationBalance = (double)finalBalance
+            };
+
+            await transactionService.CreateTransactionAsync(inverseTransaction);
+            navManager.NavigateTo("/user");
+        }
+        catch (ApiException)
+        {
+            transactionErrorMessage = "Destination account does not exist!";
+            formBusy = false;
+            return;
+        }
+    }
+
+    [SupplyParameterFromForm]
+    TransactionDTO? transactionDTO { get; set; }
+}

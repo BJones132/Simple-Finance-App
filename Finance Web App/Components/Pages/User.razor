@@ -1,0 +1,171 @@
+﻿@page "/user"
+
+@inject AuthService authService
+@inject AccountService accountService
+@inject TransactionService transactionService
+@inject NavigationManager navManager
+@inject ProtectedLocalStorage protectedLocalStorage
+
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<Layout Height="Height.Vh(100)"
+        Overflow="Overflow.Hidden">
+        @if (accounts == null)
+        {
+            <Span>Loading...</Span>
+        }
+        else
+        {
+            <LayoutHeader Background="Background.Primary" TextColor="TextColor.White" Padding="Padding.Is3">
+                <Div Width="Width.Is100"
+                     Flex="Flex.JustifyContent.Between.AlignItems.Center"
+                     Gap="Gap.Is3">
+                     <Div Flex="Flex.AlignItems.Center" Gap="Gap.Is2">
+                         <Icon Name="IconName.User" />
+                         <Span TextWeight="TextWeight.SemiBold">User</Span>
+                     </Div>
+                     <Div Flex="Flex.AlignItems.Center" Gap="Gap.Is2">
+                         <Button Color="Color.Light" Outline @onclick="LogOut">Log out</Button>
+                     </Div>
+                </Div>
+            </LayoutHeader>
+            <Layout Sider>
+                <LayoutSider Width="Width.Auto"
+                             Background="Background.Dark"
+                             TextColor="TextColor.White">
+                    <LayoutSiderContent Width="Width.Is100">
+                        <Div Flex="Flex.Column">
+                            <Anchor TextDecoration="TextDecoration.None" TextColor="TextColor.White" href="/user">
+                                <Div Flex="Flex.AlignItems.Center" Gap="Gap.Is2" Padding="Padding.Is3.OnAll.Is5.FromEnd.OnDesktop" Background="Background.Secondary">
+                                    <Icon Name="IconName.Dashboard" />
+                                    <Span Display="Display.None.OnMobile.Inline.OnDesktop">Overview</Span>
+                                </Div>
+                            </Anchor>
+                        </Div>
+                    </LayoutSiderContent>
+                </LayoutSider>
+            <LayoutContent Flex="Flex.Row.JustifyContent.Between">
+                <Div Width="Width.Is50" Flex="Flex.Column"  Margin="Margin.Is3">
+                    @foreach(var account in accounts.Select((x,i)=>new { Value = x, Index = i}))
+                    {
+                        @if(account.Index == selectedAccount){
+                        <Card Margin="Margin.IsAuto.FromStart.FromEnd.Is2.FromTop.FromBottom" Background="Background.Light" Width="Width.Is75">
+                            <Anchor Role="button" TextDecoration="TextDecoration.None" TextColor="TextColor.Dark" @onclick="@(e => SelectAccount(account.Index))">
+                                <CardBody Flex="Flex.Row.JustifyContent.Between">
+                                    <Div Flex="Flex.Column">
+                                        <CardTitle Size="HeadingSize.Is5" TextWeight="TextWeight.SemiBold" Margin="Margin.Is0">
+                                            £@account.Value.Balance.ToString()
+                                        </CardTitle>
+                                        <CardText TextSize="TextSize.Small" TextColor="TextColor.Black50" TextWeight="TextWeight.Light">
+                                            Account #@account.Value.Id
+                                        </CardText>
+                                    </Div>
+                                    <Icon Name="IconName.ChevronRight" Flex="Flex.InlineFlex.AlignSelf.Stretch.AlignItems.Center" />
+                                </CardBody>
+                            </Anchor>
+                        </Card>
+                        }else{
+                        <Card Margin="Margin.IsAuto.FromStart.FromEnd.Is2.FromTop.FromBottom" Width="Width.Is75">
+                            <Anchor Role="button" TextDecoration="TextDecoration.None" TextColor="TextColor.Dark" @onclick="@(e=>SelectAccount(account.Index))">
+                                <CardBody Flex="Flex.Row.JustifyContent.Between">
+                                    <Div Flex="Flex.Column">
+                                        <CardTitle Size="HeadingSize.Is5" TextWeight="TextWeight.SemiBold" Margin="Margin.Is0">
+                                            £@account.Value.Balance.ToString()
+                                        </CardTitle>
+                                        <CardText TextSize="TextSize.Small" TextColor="TextColor.Black50" TextWeight="TextWeight.Light">
+                                            Account #@account.Value.Id
+                                        </CardText>
+                                    </Div>
+                                    <Icon Name="IconName.ChevronRight" Flex="Flex.InlineFlex.AlignSelf.Stretch.AlignItems.Center" />
+                                </CardBody>
+                            </Anchor>
+                        </Card>
+                        }
+                    }
+                </Div>
+                @if(selectedAccount != -1){
+                    <Div Flex="Flex.Column" Width="Width.Is50" Background="Background.Light" Border="Border.Is1.Dark.Subtle.OnStart">
+                        <Div Flex="Flex.Column.JustifyContent.Around.AlignItems.Center" Padding="Padding.Is2" Width="Width.Is100" Height="Height.Px(150)" Background="Background.Secondary.Subtle" Border="Border.Is1.Dark.Subtle.OnBottom">
+                            <Span TextSize="TextSize.Heading4" TextWeight="TextWeight.Light" TextColor="TextColor.Dark">Account #@accounts[selectedAccount].Id</Span>
+                            <Divider />
+                            <Span TextSize="TextSize.Heading2" TextWeight="TextWeight.SemiBold" TextColor ="TextColor.Success" Margin="Margin.Is2.FromBottom">£@accounts[selectedAccount].Balance</Span>
+                        </Div>
+                        <Div Flex="Flex.Row.JustifyContent.Center.AlignItems.Center" Width="Width.Is100" Background="Background.Dark" Gap="Gap.Is5" Padding="Padding.Is2">
+                            <Button Type="ButtonType.Link" To="/createTransaction" Background="Background.Primary" Width="Width.Px(42)" Height="Height.Px(42)" Border="Border.RoundedCircle"><Icon Name="IconName.Send" TextColor="TextColor.White" /></Button>
+                            <Button Type="ButtonType.Link" To="/transactionBreakdown" Background="Background.Primary" Width="Width.Px(42)" Height="Height.Px(42)" Border="Border.RoundedCircle"><Icon Name="IconName.ChartPie" TextColor="TextColor.White" /></Button>
+                        </Div>
+                        <Div Flex="Flex.Row.JustifyContent.Center.AlignItems.Center" Width="Width.Is100" Background="Background.Secondary" Padding="Padding.Is2" Border="Border.Is1.Dark.OnBottom">
+                            <Span TextSize="TextSize.Heading4" TextWeight="TextWeight.SemiBold" TextColor="TextColor.White">Transactions</Span>
+                        </Div>
+                        <Div Width="Width.Is100" Overflow="Overflow.Scroll">
+                        @if(transactions != null)
+                        {
+                            foreach(Transaction transaction in transactions)
+                            {
+                            <Div Flex="Flex.Row.JustifyContent.Between.AlignItems.Center" Padding="Padding.Is2.OnY.Is3.OnX" Border="Border.Is1.Dark.OnBottom">
+                                <Div Width="Width.Is33" TextColor="TextColor.Dark" Flex="Flex.Column.JustifyContent.Between.AlignItems.Center">
+                                    <Span>Reference: @transaction.Reference</Span>
+                                    <Span>Designator: @transaction.Designator</Span>
+                                    <Span>Account: @transaction.SourceAccountId</Span>
+                                </Div>
+                                <Div Width="Width.Is33" Flex="Flex.Column.JustifyContent.Center.AlignItems.Center">
+                                    @if (transaction.Amount >= 0)
+                                    {
+                                        <Span TextColor="TextColor.Success">£@transaction.Amount</Span>
+                                    }
+                                    else
+                                    {
+                                        <Span TextColor="TextColor.Danger">£@transaction.Amount</Span>
+                                    }
+                                </Div>
+                                <Div Width="Width.Is33" Flex="Flex.Column.JustifyContent.Center.AlignItems.Center">
+                                    <Span TextColor="TextColor.Primary">Balance: £@transaction.DestinationBalance</Span>
+                                </Div>
+                            </Div>
+                            }
+                        }
+                        </Div>
+                    </Div>
+                }
+            </LayoutContent>
+            </Layout>
+        }
+</Layout>
+
+    @code {
+    int selectedAccount = -1;
+    List<Account>? accounts;
+    List<Transaction>? transactions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        string? token = (await protectedLocalStorage.GetAsync<string>("access_token")).Value;
+        if (string.IsNullOrEmpty(token)){
+            navManager.NavigateTo("/");
+            return;
+        }
+
+        try
+        {
+            int uid = await authService.Get_IDAsync(token);
+            accounts = (List<Account>)await accountService.GetAccountsAsync(uid);
+        }
+        catch (ApiException)
+        {
+            navManager.NavigateTo("/login");
+        }
+    }
+
+    private async Task LogOut()
+    {
+        await protectedLocalStorage.DeleteAsync("access_token");
+        navManager.NavigateTo("/");
+    }
+
+    private async Task SelectAccount(int id){
+        if (selectedAccount == id)
+            return;
+        selectedAccount = id;
+        transactions = (List<Transaction>) await transactionService.TransactionsAsync(accounts[selectedAccount].Id);
+    }
+}

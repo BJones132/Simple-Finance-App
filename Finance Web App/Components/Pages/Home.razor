@@ -1,0 +1,21 @@
+﻿@page "/"
+
+<Layout Height="Height.Vh(100)"
+        TextAlignment="TextAlignment.Center">
+    <LayoutContent Flex="Flex.Column.JustifyContent.Center">
+        <Heading Size="HeadingSize.Is1" TextColor="TextColor.Dark">
+            Simple Finance App
+        </Heading>
+        <Heading Size="HeadingSize.Is5" TextDecoration="TextDecoration.Underline" TextColor="TextColor.Black50">
+            Login or Register to begin
+        </Heading>
+        <Div Flex="Flex.Row.JustifyContent.Center">
+            <Button Color="Color.Dark" Border="Border.Dark" Margin="Margin.Is3" Type="ButtonType.Link" To="/login">
+                Login
+            </Button>
+            <Button Color="Color.Light" Border="Border.Dark" Margin="Margin.Is3" Type="ButtonType.Link" To="/register">
+                Register
+            </Button>
+        </Div>
+    </LayoutContent>
+</Layout>
